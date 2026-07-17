@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Settings — ExpensePilot</title>
+  <link rel="stylesheet" href="../styles/main.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main fade-in">
+      <div class="page-head">
+        <div>
+          <div class="page-title">Settings</div>
+          <div class="page-sub">Manage banks, scans and your data</div>
+        </div>
+      </div>
+
+      <div class="grid grid-2 stagger">
+        <div class="card">
+          <div class="section-title">Supported banks</div>
+          <div id="banks" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+          <div class="divider"></div>
+          <label style="font-size:13px;color:var(--text-dim)">Add a bank (name)</label>
+          <div style="display:flex;gap:8px;margin-top:6px">
+            <input class="input" id="newBank" placeholder="e.g. IDFC" />
+            <button class="btn btn-primary" id="addBank">Add</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-title">Scan frequency</div>
+          <select id="freq">
+            <option value="15">Every 15 minutes</option>
+            <option value="30">Every 30 minutes</option>
+            <option value="60">Every hour</option>
+            <option value="180">Every 3 hours</option>
+            <option value="360">Every 6 hours</option>
+          </select>
+          <div class="divider"></div>
+          <div class="section-title">Monthly budget</div>
+          <input class="input" id="budget" type="number" placeholder="50000" />
+          <div class="divider"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-weight:600;font-size:14px">Theme</div>
+              <div style="color:var(--text-dim);font-size:12px">Dark or light appearance</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="themeToggle" />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-title">Your data</div>
+          <p style="color:var(--text-dim);font-size:13px;margin-bottom:12px">Everything is stored locally in this browser. Export a backup or wipe it any time.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn" id="exportBtn">⬇ Export JSON</button>
+            <label class="btn" style="cursor:pointer">
+              ⬆ Import JSON
+              <input type="file" id="importFile" accept="application/json" style="display:none" />
+            </label>
+            <button class="btn btn-danger" id="wipeBtn">Delete all local data</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-title">Gmail connection</div>
+          <div id="gmailStatus" style="margin-bottom:12px"></div>
+          <button class="btn btn-danger" id="disconnect">Disconnect Gmail</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { mountLayout } from "./_layout.js";
+    import { get, set, remove, clearAll, KEYS, getSettings, saveSettings } from "../utils/storage.js";
+
+    await mountLayout("settings");
+    const settings = await getSettings();
+
+    // Banks
+    const banksEl = document.getElementById("banks");
+    function renderBanks() {
+      banksEl.innerHTML = settings.supportedBanks.map((b, i) => `
+        <span class="bank-chip">${b} <button data-i="${i}" style="background:none;border:none;color:var(--text-mute);cursor:pointer;font-size:14px;margin-left:4px">×</button></span>
+      `).join("");
+      banksEl.querySelectorAll("button").forEach((btn) => {
+        btn.onclick = async () => {
+          settings.supportedBanks.splice(+btn.dataset.i, 1);
+          await saveSettings({ supportedBanks: settings.supportedBanks });
+          renderBanks();
+        };
+      });
+    }
+    renderBanks();
+    document.getElementById("addBank").onclick = async () => {
+      const v = document.getElementById("newBank").value.trim();
+      if (!v) return;
+      settings.supportedBanks.push(v);
+      await saveSettings({ supportedBanks: settings.supportedBanks });
+      document.getElementById("newBank").value = "";
+      renderBanks();
+    };
+
+    // Freq
+    const freq = document.getElementById("freq");
+    freq.value = String(settings.scanFrequency);
+    freq.onchange = async () => {
+      await saveSettings({ scanFrequency: +freq.value });
+      if (chrome.runtime && chrome.runtime.sendMessage) {
+        chrome.runtime.sendMessage({ type: "ep_reschedule", freq: +freq.value });
+      }
+    };
+
+    // Budget
+    const budget = document.getElementById("budget");
+    budget.value = settings.monthlyBudget;
+    budget.onchange = async () => { await saveSettings({ monthlyBudget: +budget.value }); };
+
+    // Theme
+    const themeToggle = document.getElementById("themeToggle");
+    themeToggle.checked = settings.theme === "dark";
+    themeToggle.onchange = async () => {
+      const t = themeToggle.checked ? "dark" : "light";
+      await saveSettings({ theme: t });
+      document.documentElement.setAttribute("data-theme", t);
+    };
+
+    // Export / Import / Wipe
+    document.getElementById("exportBtn").onclick = async () => {
+      const data = {
+        transactions: await get(KEYS.TRANSACTIONS, []),
+        settings: await getSettings(),
+        exportedAt: new Date().toISOString(),
+      };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `expensepilot-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    };
+    document.getElementById("importFile").onchange = async (e) => {
+      const file = e.target.files[0]; if (!file) return;
+      const text = await file.text();
+      try {
+        const data = JSON.parse(text);
+        if (Array.isArray(data.transactions)) await set(KEYS.TRANSACTIONS, data.transactions);
+        if (data.settings) await saveSettings(data.settings);
+        alert("Imported successfully.");
+        location.reload();
+      } catch { alert("Invalid JSON file."); }
+    };
+    document.getElementById("wipeBtn").onclick = async () => {
+      if (!confirm("Delete ALL local data? This can't be undone.")) return;
+      await clearAll();
+      location.href = "welcome.html";
+    };
+
+    // Gmail
+    const connected = await get(KEYS.GMAIL_CONNECTED, false);
+    document.getElementById("gmailStatus").innerHTML = connected
+      ? `<span class="pill pill-credit">Connected</span> <span style="color:var(--text-dim);font-size:13px;margin-left:8px">Last scan: ${(await get(KEYS.LAST_SCAN)) || "—"}</span>`
+      : `<span class="pill pill-debit">Not connected</span>`;
+    document.getElementById("disconnect").onclick = async () => {
+      await remove(KEYS.GMAIL_CONNECTED);
+      await remove(KEYS.LAST_SCAN);
+      // Also revoke Chrome identity cache if available:
+      if (chrome.identity && chrome.identity.clearAllCachedAuthTokens) {
+        chrome.identity.clearAllCachedAuthTokens(() => {});
+      }
+      location.reload();
+    };
+  </script>
+</body>
+</html>

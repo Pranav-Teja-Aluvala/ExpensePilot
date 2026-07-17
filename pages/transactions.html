@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Transactions — ExpensePilot</title>
+  <link rel="stylesheet" href="../styles/main.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main fade-in">
+      <div class="page-head">
+        <div>
+          <div class="page-title">Transactions</div>
+          <div class="page-sub" id="countLine">—</div>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <input class="input" id="q" placeholder="Search merchant…" />
+        <select id="fCat"><option value="">All categories</option></select>
+        <select id="fBank"><option value="">All banks</option></select>
+        <select id="fType">
+          <option value="">All types</option>
+          <option>Debit</option>
+          <option>Credit</option>
+        </select>
+        <input class="input" id="fMin" type="number" placeholder="Min ₹" style="max-width:120px" />
+        <input class="input" id="fMax" type="number" placeholder="Max ₹" style="max-width:120px" />
+        <input class="input" id="fFrom" type="date" style="max-width:170px" />
+        <input class="input" id="fTo" type="date" style="max-width:170px" />
+      </div>
+
+      <div class="card" style="padding:10px">
+        <table class="tx-table">
+          <thead>
+            <tr><th>Date</th><th>Merchant</th><th>Category</th><th>Bank</th><th>Type</th><th style="text-align:right">Amount</th><th style="text-align:right">Balance</th></tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+        <div class="pagination">
+          <span id="pinfo"></span>
+          <div style="display:flex;gap:8px">
+            <button class="btn" id="prev">← Prev</button>
+            <button class="btn" id="next">Next →</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="transactions.js" type="module"></script>
+</body>
+</html>

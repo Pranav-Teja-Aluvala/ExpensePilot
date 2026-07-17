@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Dashboard — ExpensePilot</title>
+  <link rel="stylesheet" href="../styles/main.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main fade-in">
+      <div class="page-head">
+        <div>
+          <div class="page-title">Dashboard</div>
+          <div class="page-sub" id="subLine">Loading…</div>
+        </div>
+        <button class="btn btn-primary" id="refreshBtn">↻ Scan now</button>
+      </div>
+
+      <div class="grid grid-4 stagger" id="stats"></div>
+
+      <div style="height:18px"></div>
+      <div class="grid grid-2 stagger">
+        <div class="card">
+          <div class="section-title">Recent activity</div>
+          <div id="recent"></div>
+        </div>
+        <div class="card">
+          <div class="section-title">Spending by category</div>
+          <div class="chart-wrap"><canvas id="catChart"></canvas></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="../vendor/chart.umd.js"></script>
+  <script src="dashboard.js" type="module"></script>
+</body>
+</html>

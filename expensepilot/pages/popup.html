@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="../styles/main.css" />
+</head>
+<body class="popup">
+  <div class="popup-header">
+    <div class="brand-mark">E</div>
+    <div>
+      <div class="brand-name">ExpensePilot</div>
+      <div class="brand-sub" id="statusLabel">Loading…</div>
+    </div>
+  </div>
+
+  <div style="display:grid;gap:10px">
+    <div class="popup-stat">
+      <div class="popup-stat-label">Spent this month</div>
+      <div class="popup-stat-value currency" id="spent">₹0</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="popup-stat">
+        <div class="popup-stat-label">Income</div>
+        <div class="popup-stat-value currency" id="income" style="font-size:16px">₹0</div>
+      </div>
+      <div class="popup-stat">
+        <div class="popup-stat-label">Savings</div>
+        <div class="popup-stat-value currency" id="savings" style="font-size:16px">₹0</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="popup-actions">
+    <button class="btn btn-primary" id="openDash">Open Dashboard</button>
+    <button class="btn" id="openSettings">Settings</button>
+  </div>
+
+  <script type="module">
+    import { get, KEYS } from "../utils/storage.js";
+    import { monthStats } from "../utils/stats.js";
+    import { inr } from "../utils/format.js";
+
+    (async () => {
+      const txs = (await get(KEYS.TRANSACTIONS, [])) || [];
+      const connected = await get(KEYS.GMAIL_CONNECTED, false);
+      document.getElementById("statusLabel").textContent = connected ? "Gmail connected" : "Demo mode";
+      const s = monthStats(txs);
+      document.getElementById("spent").textContent = inr(s.spent);
+      document.getElementById("income").textContent = inr(s.income);
+      document.getElementById("savings").textContent = inr(s.savings);
+    })();
+
+    function openPage(p) {
+      const url = chrome.runtime.getURL("pages/" + p);
+      chrome.tabs.create({ url });
+    }
+    document.getElementById("openDash").onclick = () => openPage("dashboard.html");
+    document.getElementById("openSettings").onclick = () => openPage("settings.html");
+  </script>
+</body>
+</html>

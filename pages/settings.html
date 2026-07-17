@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Settings — ExpensePilot</title>
+  <link rel="stylesheet" href="../styles/main.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main fade-in">
+      <div class="page-head">
+        <div>
+          <div class="page-title">Settings</div>
+          <div class="page-sub">Manage banks, scans and your data</div>
+        </div>
+      </div>
+
+      <div class="grid grid-2 stagger">
+        <div class="card">
+          <div class="section-title">Supported banks</div>
+          <div id="banks" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+          <div class="divider"></div>
+          <label style="font-size:13px;color:var(--text-dim)">Add a bank (name)</label>
+          <div style="display:flex;gap:8px;margin-top:6px">
+            <input class="input" id="newBank" placeholder="e.g. IDFC" />
+            <button class="btn btn-primary" id="addBank">Add</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-title">Scan frequency</div>
+          <select id="freq">
+            <option value="15">Every 15 minutes</option>
+            <option value="30">Every 30 minutes</option>
+            <option value="60">Every hour</option>
+            <option value="180">Every 3 hours</option>
+            <option value="360">Every 6 hours</option>
+          </select>
+          <div class="divider"></div>
+          <div class="section-title">Monthly budget</div>
+          <input class="input" id="budget" type="number" placeholder="50000" />
+          <div class="divider"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-weight:600;font-size:14px">Theme</div>
+              <div style="color:var(--text-dim);font-size:12px">Dark or light appearance</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="themeToggle" />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-title">Your data</div>
+          <p style="color:var(--text-dim);font-size:13px;margin-bottom:12px">Everything is stored locally in this browser. Export a backup or wipe it any time.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn" id="exportBtn">⬇ Export JSON</button>
+            <label class="btn" style="cursor:pointer">
+              ⬆ Import JSON
+              <input type="file" id="importFile" accept="application/json" style="display:none" />
+            </label>
+            <button class="btn btn-danger" id="wipeBtn">Delete all local data</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-title">Gmail connection</div>
+          <div id="gmailStatus" style="margin-bottom:12px"></div>
+          <button class="btn btn-danger" id="disconnect">Disconnect Gmail</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="settings.js" type="module"></script>
+</body>
+</html>
