@@ -1,92 +1,41 @@
 # ExpensePilot
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+A Chrome extension prototype for organizing bank-transaction emails into a local expense dashboard. It includes a demo-data mode and a Gmail import workflow.
 
-ExpensePilot is a privacy-first browser extension that tracks expenses by reading supported bank transaction emails from Gmail.
+## Try it
 
-Instead of manually entering every expense, the extension imports transaction data, categorizes spending, generates analytics, and provides financial insights. All processing happens locally on your device. Emails are never permanently stored, and only normalized transaction data is kept inside the browser storage.
+```bash
+git clone https://github.com/Pranav-Teja-Aluvala/ExpensePilot.git
+```
 
-## Features
+1. Open `chrome://extensions` and enable Developer mode.
+2. Choose **Load unpacked** and select the repository root, which contains `manifest.json`.
+3. On the welcome page, choose **Explore with demo data**. This loads generated transactions; Gmail access is not required for the demo.
 
-- **Automatic Gmail import**: Syncs transaction emails in the background.
-- **Google OAuth**: Secure authentication via the Chrome Identity API.
-- **Gmail Readonly**: Requests only the minimum necessary permissions.
-- **Bank parsers**: Built-in support for multiple Indian banks.
-- **Merchant engine**: Recognizes and normalizes merchant names.
-- **Automatic categorization**: Maps transactions to standard categories.
-- **Confidence scoring**: Flags potentially inaccurate parses.
-- **Analytics & Dashboard**: Interactive charts, weekly, and monthly reports.
-- **Data export**: Export your data to CSV or JSON.
-- **Local-first storage**: No external databases.
-- **Ollama ready**: Upcoming integration for local AI insights.
+Use the root version. The nested `expensepilot/` directory is an older copy with inline page scripts, which conflict with the extension's content-security policy.
 
-## Tech Stack
+## Implemented
 
-**Frontend**
-- HTML / CSS / JavaScript (ES Modules)
-- Chart.js
+- Dashboard, transaction list, category charts and monthly trends.
+- CSV/JSON export and JSON import.
+- Bank-email parsers for SBI, HDFC, ICICI, Axis, Kotak and Union Bank.
+- Merchant normalization, parse-confidence scores and duplicate checks.
+- Gmail synchronization through a background service worker.
+- Browser-local transaction storage and settings.
 
-**Backend / Integration**
-- Google OAuth & Gmail API
-- Chrome Extension APIs (Manifest V3)
-- Python (future analytics/report generation)
-- Ollama (planned)
+## Gmail setup
 
-**Storage**
-- Chrome Storage API
-- JSON
+The manifest contains a Chrome-extension OAuth client ID. For your own installation, configure an OAuth client for your extension ID and replace `oauth2.client_id` in `manifest.json`. The requested Gmail scope is `gmail.readonly`; the extension also uses browser storage, identity, alarms and notification permissions.
 
-## Project Structure
+Gmail import needs a compatible OAuth configuration. Parser coverage depends on bank-email formats and has not been validated across real accounts here.
 
-- `assets/` - Icons and static images
-- `pages/` - UI views (Dashboard, Settings, Transactions, etc.)
-- `scripts/` - Background service workers
-- `styles/` - Vanilla CSS styles
-- `utils/` - Core logic including storage, formatters, and API clients
-  - `parsers/` - Bank-specific regex parsers and registry
-- `vendor/` - Third-party libraries (Chart.js)
+## Current limits
 
-## How It Works
+- Several dashboard comparisons and insight messages are placeholders.
+- Ollama integration is not implemented. The insights page currently combines calculated summaries with fixed text.
+- There is no automated test suite, and the duplicate source tree still needs consolidation.
 
-User installs extension
-↓
-Connect Gmail
-↓
-Google OAuth
-↓
-Read supported bank emails
-↓
-Parse transactions
-↓
-Normalize data
-↓
-Store locally
-↓
-Generate analytics
-↓
-Display dashboard
+Transactions are stored locally. Gmail import makes requests to Google's services; this is not an offline-only application. No separate application backend is included.
 
-## Privacy
+The main code is in `pages/`, `scripts/background.js` and `utils/`. Charts use the bundled Chart.js library.
 
-- Emails are not uploaded to any external server.
-- Bank credentials are never accessed or requested.
-- Only the `gmail.readonly` permission is requested.
-- Everything is processed locally in the browser sandbox.
-
-## Future Improvements
-
-- PDF Statement Import
-- CSV Import
-- Budget Planner
-- Investment Tracking
-- Recurring Payments
-- AI Financial Assistant
-- Multi-account support
-
-## Contributing
-
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
-
-## License
-
-MIT
