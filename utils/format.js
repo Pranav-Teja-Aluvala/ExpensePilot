@@ -30,3 +30,8 @@ export function animateNumber(el, target, duration = 900, formatter = (v) => v) 
   }
   requestAnimationFrame(tick);
 }
+
+export function escapeHtml(value) {
+  const entities = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+  return String(value ?? "").replace(/[&<>"']/g, (character) => entities[character]);
+}

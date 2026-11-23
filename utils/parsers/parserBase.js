@@ -7,8 +7,8 @@ export class ParserBase {
   get name() { return this.bankName; }
 
   canParse(emailFrom, emailSubject) {
-    const from = (emailFrom || '').toLowerCase();
-    const subject = (emailSubject || '').toLowerCase();
+    const from = typeof emailFrom === 'string' ? emailFrom.toLowerCase() : '';
+    const subject = typeof emailSubject === 'string' ? emailSubject.toLowerCase() : '';
     return this.senderPatterns.some(p => {
       const isRegex = p instanceof RegExp;
       return isRegex ? (p.test(from) || p.test(subject)) : (from.includes(p) || subject.includes(p));
@@ -32,8 +32,8 @@ export class ParserBase {
 
   extractAmount(text) {
     const patterns = [
-      /(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d{1,2})?)/gi,
-      /([\d,]+(?:\.\d{1,2})?)\s*(?:Rs\.?|INR|₹)/gi
+      /(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d+)?)(?![\d,]|\.\d)/gi,
+      /([\d,]+(?:\.\d+)?)(?![\d,]|\.\d)\s*(?:Rs\.?|INR|₹)/gi
     ];
     for (const p of patterns) {
       const m = p.exec(text);
@@ -44,7 +44,7 @@ export class ParserBase {
 
   extractBalance(text) {
     const patterns = [
-      /(?:avl\.?\s*bal(?:ance)?|available\s*balance|bal)(?:\s*(?:is|:|-|=))?\s*(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d{1,2})?)/gi,
+      /(?:avl\.?\s*bal(?:ance)?|available\s*balance|bal)(?:\s*(?:is|:|-|=))?\s*(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d+)?)(?![\d,]|\.\d)/gi,
     ];
     for (const p of patterns) {
       const m = p.exec(text);
@@ -55,13 +55,14 @@ export class ParserBase {
 
   normalizeAmount(amountStr) {
     if (!amountStr) return null;
-    const cleaned = String(amountStr).replace(/,/g, '').trim();
-    const num = parseFloat(cleaned);
-    return isNaN(num) ? null : num;
+    const text = String(amountStr).trim();
+    if (!/^(?:\d+|\d{1,3}(?:,\d{3})+|\d{1,2}(?:,\d{2})*,\d{3})(?:\.\d{1,2})?$/.test(text)) return null;
+    const amount = Number(text.replace(/,/g, ''));
+    return Number.isFinite(amount) ? amount : null;
   }
 
   stripHtml(html) {
-    return (html || '')
+    return (typeof html === 'string' ? html : '')
       .replace(/<\/(td|tr|p|div|li)>/gi, ' ')
       .replace(/<br\s*\/?>/gi, ' ')
       .replace(/<[^>]*>/g, ' ')
@@ -81,7 +82,7 @@ export class ParserBase {
       let year = parseInt(m[3], 10);
       if (year < 100) year += 2000;
       const d = new Date(Date.UTC(year, month, day, 6, 30, 0));
-      if (!isNaN(d.getTime())) return d.toISOString();
+      if (d.getUTCDate() === day && d.getUTCMonth() === month) return d.toISOString();
     }
 
     const months = { jan:0, feb:1, mar:2, apr:3, may:4, jun:5, jul:6, aug:7, sep:8, oct:9, nov:10, dec:11 };
@@ -92,7 +93,7 @@ export class ParserBase {
       let year = parseInt(m[3], 10);
       if (year < 100) year += 2000;
       const d = new Date(Date.UTC(year, month, day, 6, 30, 0));
-      if (!isNaN(d.getTime())) return d.toISOString();
+      if (d.getUTCDate() === day && d.getUTCMonth() === month) return d.toISOString();
     }
 
     return fallbackDate || new Date().toISOString();

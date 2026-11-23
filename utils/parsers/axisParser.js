@@ -17,18 +17,18 @@ export class AxisParser extends ParserBase {
     let reasoning = [];
     let confidence = 0;
     
-    const debitMatch = text.match(/debited with (?:Rs\.?|INR|₹)\s*([\d,.]+)\s*on\s*([\d-]+|\d{1,2}[a-zA-Z]{3}\d{2,4})\s*towards\s*(.*?)(?:\.|\s*Avl|\s*Available)/i);
-    const creditMatch = text.match(/credited with (?:Rs\.?|INR|₹)\s*([\d,.]+)\s*on\s*([\d-]+|\d{1,2}[a-zA-Z]{3}\d{2,4})\.\s*(.*?)(?:\.|\s*Avl|\s*Available)/i);
+    const debitMatch = text.match(/debited with (?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d+)?)(?![\d,]|\.\d)\s*on\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}[\s-]?[a-zA-Z]{3}[\s-]?\d{2,4})\s*towards\s*(.*?)(?:\.|\s*Avl|\s*Available)/i);
+    const creditMatch = text.match(/credited with (?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d+)?)(?![\d,]|\.\d)\s*on\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}[\s-]?[a-zA-Z]{3}[\s-]?\d{2,4})\.\s*(.*?)(?:\.|\s*Avl|\s*Available)/i);
 
     if (debitMatch) {
       type = 'Debit';
-      if (!amount) amount = this.normalizeAmount(debitMatch[1]);
+      amount = this.normalizeAmount(debitMatch[1]);
       dateStr = debitMatch[2];
       merchant = debitMatch[3].trim();
       reasoning.push('Matched Axis Debit pattern');
     } else if (creditMatch) {
       type = 'Credit';
-      if (!amount) amount = this.normalizeAmount(creditMatch[1]);
+      amount = this.normalizeAmount(creditMatch[1]);
       dateStr = creditMatch[2];
       merchant = creditMatch[3].trim();
       reasoning.push('Matched Axis Credit pattern');

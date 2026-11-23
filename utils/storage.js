@@ -4,31 +4,32 @@ export const KEYS = {
   SETTINGS: "ep_settings",
   GMAIL_CONNECTED: "ep_gmail_connected",
   LAST_SCAN: "ep_last_scan",
+  SYNC_ERROR: "ep_sync_error",
 };
 
 const isExt = typeof chrome !== "undefined" && chrome.storage && chrome.storage.local;
 
 export async function get(key, fallback = null) {
   if (isExt) {
-    return new Promise((r) => chrome.storage.local.get([key], (o) => r(o[key] ?? fallback)));
+    return (await chrome.storage.local.get(key))[key] ?? fallback;
   }
   try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; }
 }
 
 export async function set(key, value) {
   if (isExt) {
-    return new Promise((r) => chrome.storage.local.set({ [key]: value }, r));
+    return chrome.storage.local.set({ [key]: value });
   }
   localStorage.setItem(key, JSON.stringify(value));
 }
 
 export async function remove(key) {
-  if (isExt) return new Promise((r) => chrome.storage.local.remove([key], r));
+  if (isExt) return chrome.storage.local.remove(key);
   localStorage.removeItem(key);
 }
 
 export async function clearAll() {
-  if (isExt) return new Promise((r) => chrome.storage.local.clear(r));
+  if (isExt) return chrome.storage.local.clear();
   localStorage.clear();
 }
 

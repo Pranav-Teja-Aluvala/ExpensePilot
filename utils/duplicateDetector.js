@@ -1,76 +1,57 @@
-export function isDuplicate(newTx, existingTxs) {
-  if (!newTx || !existingTxs || !Array.isArray(existingTxs)) return false;
-  
-  const newDate = new Date(newTx.date).getTime();
-  
-  return existingTxs.some(tx => {
-    // Same ID
-    if (tx.id === newTx.id) return true;
-    
-    // Same amount, type, bank, and date within 60 seconds
-    if (tx.amount === newTx.amount && 
-        tx.type === newTx.type && 
-        tx.bank === newTx.bank) {
-      const existingDate = new Date(tx.date).getTime();
-      if (!isNaN(newDate) && !isNaN(existingDate) && Math.abs(newDate - existingDate) <= 60000) {
-        return true;
-      }
-    }
-    
-    return false;
-  });
+export function isDuplicate(transaction, existingTransactions) {
+  return Boolean(transaction?.id && Array.isArray(existingTransactions) &&
+    existingTransactions.some((existing) => existing?.id === transaction.id));
 }
 
-export function deduplicateTransactions(txs) {
-  if (!txs || !Array.isArray(txs)) return [];
-  
-  const result = [];
-  const buckets = new Map();
+export function findDuplicates(transactions) {
+  const unique = [];
+  const duplicates = [];
+  const seen = new Set();
 
-  for (const tx of txs) {
-    if (!tx || !tx.id) continue;
-    // Fast path: if ID is already in result, skip.
-    if (result.some(t => t.id === tx.id)) continue;
-
-    const bucketKey = `${tx.amount}|${tx.type}|${tx.bank}`;
-    let isDup = false;
-
-    if (buckets.has(bucketKey)) {
-      const bucket = buckets.get(bucketKey);
-      const txTime = new Date(tx.date).getTime();
-      for (const existingTx of bucket) {
-        const extTime = new Date(existingTx.date).getTime();
-        if (!isNaN(txTime) && !isNaN(extTime) && Math.abs(txTime - extTime) <= 60000) {
-          isDup = true;
-          break;
-        }
-      }
+  for (const transaction of Array.isArray(transactions) ? transactions : []) {
+    if (!transaction?.id) continue;
+    if (seen.has(transaction.id)) {
+      duplicates.push(transaction);
     } else {
-      buckets.set(bucketKey, []);
-    }
-
-    if (!isDup) {
-      result.push(tx);
-      buckets.get(bucketKey).push(tx);
+      seen.add(transaction.id);
+      unique.push(transaction);
     }
   }
 
-  return result;
+  return { unique, duplicates };
 }
 
-export function findDuplicates(txs) {
-  if (!txs || !Array.isArray(txs)) return { unique: [], duplicates: [] };
-  
-  const unique = [];
-  const duplicates = [];
-  
-  txs.forEach(tx => {
-    if (isDuplicate(tx, unique)) {
-      duplicates.push(tx);
+export function deduplicateTransactions(transactions) {
+  return findDuplicates(transactions).unique;
+}
+
+export function mergeGmailTransactions(existingTransactions, incomingTransactions) {
+  const merged = deduplicateTransactions(existingTransactions);
+  const legacyRows = new Map();
+  const seenMessages = new Set();
+
+  merged.forEach((transaction, index) => {
+    if (transaction.gmailMessageId) {
+      seenMessages.add(transaction.gmailMessageId);
     } else {
-      unique.push(tx);
+      legacyRows.set(transaction.id, index);
     }
   });
-  
-  return { unique, duplicates };
+
+  for (const transaction of incomingTransactions) {
+    const messageId = transaction.gmailMessageId;
+    if (!messageId || seenMessages.has(messageId)) continue;
+    seenMessages.add(messageId);
+
+    const legacyIndex = legacyRows.get(transaction.id);
+    if (legacyIndex !== undefined) {
+      // Keep existing category edits and other persisted fields during a rescan.
+      merged[legacyIndex] = { ...merged[legacyIndex], gmailMessageId: messageId };
+      legacyRows.delete(transaction.id);
+    } else {
+      merged.push({ ...transaction, id: `gmail:${messageId}` });
+    }
+  }
+
+  return merged;
 }

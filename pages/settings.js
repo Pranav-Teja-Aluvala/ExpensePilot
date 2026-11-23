@@ -1,32 +1,31 @@
 import { mountLayout } from "./_layout.js";
-    import { get, set, remove, clearAll, KEYS, getSettings, saveSettings } from "../utils/storage.js";
+    import { get, set, remove, KEYS, getSettings, saveSettings } from "../utils/storage.js";
+    import { connectGmail, sendWorkerRequest } from "../utils/gmailConnection.js";
+    import { getParserNames } from "../utils/parsers/registry.js";
+    import { importFromJSON } from "../utils/exportImport.js";
+    import { removeLegacyDemoRows } from "../utils/legacyDemo.js";
 
     await mountLayout("settings");
     const settings = await getSettings();
 
-    // Banks
     const banksEl = document.getElementById("banks");
-    function renderBanks() {
-      banksEl.innerHTML = settings.supportedBanks.map((b, i) => `
-        <span class="bank-chip">${b} <button data-i="${i}" style="background:none;border:none;color:var(--text-mute);cursor:pointer;font-size:14px;margin-left:4px">×</button></span>
-      `).join("");
-      banksEl.querySelectorAll("button").forEach((btn) => {
-        btn.onclick = async () => {
-          settings.supportedBanks.splice(+btn.dataset.i, 1);
-          await saveSettings({ supportedBanks: settings.supportedBanks });
-          renderBanks();
-        };
-      });
+    for (const bank of getParserNames()) {
+      const label = document.createElement("label");
+      label.className = "bank-chip";
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = settings.supportedBanks?.includes(bank);
+      checkbox.onchange = async () => {
+        const selected = new Set(settings.supportedBanks || []);
+        if (checkbox.checked) selected.add(bank);
+        else selected.delete(bank);
+        settings.supportedBanks = getParserNames().filter((name) => selected.has(name));
+        await saveSettings({ supportedBanks: settings.supportedBanks });
+        await remove(KEYS.LAST_SCAN);
+      };
+      label.append(checkbox, " ", bank);
+      banksEl.append(label);
     }
-    renderBanks();
-    document.getElementById("addBank").onclick = async () => {
-      const v = document.getElementById("newBank").value.trim();
-      if (!v) return;
-      settings.supportedBanks.push(v);
-      await saveSettings({ supportedBanks: settings.supportedBanks });
-      document.getElementById("newBank").value = "";
-      renderBanks();
-    };
 
     // Freq
     const freq = document.getElementById("freq");
@@ -34,7 +33,7 @@ import { mountLayout } from "./_layout.js";
     freq.onchange = async () => {
       await saveSettings({ scanFrequency: +freq.value });
       if (chrome.runtime && chrome.runtime.sendMessage) {
-        chrome.runtime.sendMessage({ type: "ep_reschedule", freq: +freq.value });
+        await sendWorkerRequest("ep_reschedule");
       }
     };
 
@@ -70,30 +69,52 @@ import { mountLayout } from "./_layout.js";
       const file = e.target.files[0]; if (!file) return;
       const text = await file.text();
       try {
-        const data = JSON.parse(text);
-        if (Array.isArray(data.transactions)) await set(KEYS.TRANSACTIONS, data.transactions);
-        if (data.settings) await saveSettings(data.settings);
+        const data = importFromJSON(text);
+        if (!data) throw new Error("Invalid backup");
+        await set(KEYS.TRANSACTIONS, removeLegacyDemoRows(data.transactions));
+        await remove(KEYS.LAST_SCAN);
+        await saveSettings(data.settings);
+        await sendWorkerRequest("ep_reschedule");
         alert("Imported successfully.");
         location.reload();
       } catch { alert("Invalid JSON file."); }
     };
     document.getElementById("wipeBtn").onclick = async () => {
       if (!confirm("Delete ALL local data? This can't be undone.")) return;
-      await clearAll();
-      location.href = "welcome.html";
+      try {
+        await sendWorkerRequest("ep_wipe");
+        location.href = "welcome.html";
+      } catch (error) {
+        alert(error.message);
+      }
     };
 
-    // Gmail
     const connected = await get(KEYS.GMAIL_CONNECTED, false);
-    document.getElementById("gmailStatus").innerHTML = connected
-      ? `<span class="pill pill-credit">Connected</span> <span style="color:var(--text-dim);font-size:13px;margin-left:8px">Last scan: ${(await get(KEYS.LAST_SCAN)) || "—"}</span>`
-      : `<span class="pill pill-debit">Not connected</span>`;
-    document.getElementById("disconnect").onclick = async () => {
-      await remove(KEYS.GMAIL_CONNECTED);
-      await remove(KEYS.LAST_SCAN);
-      // Also revoke Chrome identity cache if available:
-      if (chrome.identity && chrome.identity.clearAllCachedAuthTokens) {
-        chrome.identity.clearAllCachedAuthTokens(() => {});
+    const status = document.getElementById("gmailStatus");
+    const connect = document.getElementById("connect");
+    const disconnect = document.getElementById("disconnect");
+    const lastScan = await get(KEYS.LAST_SCAN);
+    const syncError = await get(KEYS.SYNC_ERROR);
+    status.textContent = syncError || (connected
+      ? lastScan ? `Connected. Last scan ${new Date(lastScan).toLocaleString()}` : "Connected. No completed scan yet."
+      : `Gmail is disconnected. Extension ID ${chrome.runtime.id}.`);
+    connect.style.display = connected ? "none" : "";
+    disconnect.style.display = connected ? "" : "none";
+
+    async function runConnectionAction(button, action, destination) {
+      button.disabled = true;
+      try {
+        await action();
+        location.href = destination;
+      } catch (error) {
+        status.textContent = error.message;
+        const nowConnected = await get(KEYS.GMAIL_CONNECTED, false);
+        connect.style.display = nowConnected ? "none" : "";
+        disconnect.style.display = nowConnected ? "" : "none";
+      } finally {
+        button.disabled = false;
       }
-      location.reload();
-    };
+    }
+
+    connect.onclick = () => runConnectionAction(connect, connectGmail, "dashboard.html");
+    disconnect.onclick = () => runConnectionAction(disconnect, () => sendWorkerRequest("ep_disconnect"), "settings.html");

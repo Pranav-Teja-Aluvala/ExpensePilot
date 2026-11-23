@@ -20,12 +20,6 @@
         <div class="card">
           <div class="section-title">Supported banks</div>
           <div id="banks" style="display:flex;flex-wrap:wrap;gap:8px"></div>
-          <div class="divider"></div>
-          <label style="font-size:13px;color:var(--text-dim)">Add a bank (name)</label>
-          <div style="display:flex;gap:8px;margin-top:6px">
-            <input class="input" id="newBank" placeholder="e.g. IDFC" />
-            <button class="btn btn-primary" id="addBank">Add</button>
-          </div>
         </div>
 
         <div class="card">
@@ -68,8 +62,9 @@
 
         <div class="card">
           <div class="section-title">Gmail connection</div>
-          <div id="gmailStatus" style="margin-bottom:12px"></div>
-          <button class="btn btn-danger" id="disconnect">Disconnect Gmail</button>
+          <div id="gmailStatus" role="status" style="margin-bottom:12px"></div>
+          <button class="btn btn-primary" id="connect">Connect Gmail</button>
+          <button class="btn btn-danger" id="disconnect" style="display:none">Disconnect Gmail</button>
         </div>
       </div>
     </main>

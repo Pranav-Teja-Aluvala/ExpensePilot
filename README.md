@@ -1,41 +1,32 @@
 # ExpensePilot
 
-A Chrome extension prototype for organizing bank-transaction emails into a local expense dashboard. It includes a demo-data mode and a Gmail import workflow.
+**Your bank alerts, organized into a spending dashboard.**
 
-## Try it
+ExpensePilot is a Chrome extension that imports transaction alerts from Gmail, groups them by merchant and category, and shows what changed this month. On a fresh install, the dashboard starts empty and fills in as matching alerts are imported.
 
-```bash
-git clone https://github.com/Pranav-Teja-Aluvala/ExpensePilot.git
-```
+## Connect Gmail
 
-1. Open `chrome://extensions` and enable Developer mode.
-2. Choose **Load unpacked** and select the repository root, which contains `manifest.json`.
-3. On the welcome page, choose **Explore with demo data**. This loads generated transactions; Gmail access is not required for the demo.
+1. Clone this repo or download and extract the source.
+2. In Chrome, open `chrome://extensions`, enable **Developer mode**, and select **Load unpacked**. Choose the folder with [manifest.json](manifest.json).
+3. Copy the installed extension ID. In your Google Cloud project, enable the Gmail API, configure the OAuth consent screen, and create a **Chrome Extension** OAuth client bound to that ID. If the app is in testing, add your Google account as a test user.
+4. Set `oauth2.client_id` in `manifest.json` to your client ID, then reload the extension in Chrome. Open **Settings → Connect Gmail** and authorize read-only access.
+5. The first scan searches up to 90 days of matching alerts. Later scans check for newer alerts automatically while Chrome is running. Use **Scan now** to retry or check for new alerts.
 
-Use the root version. The nested `expensepilot/` directory is an older copy with inline page scripts, which conflict with the extension's content-security policy.
+The client in the checked-in manifest may belong to a different extension ID. An unpacked installation needs a matching OAuth client. Chrome manages the access token.
 
-## Implemented
+## What you see after a scan
 
-- Dashboard, transaction list, category charts and monthly trends.
-- CSV/JSON export and JSON import.
-- Bank-email parsers for SBI, HDFC, ICICI, Axis, Kotak and Union Bank.
-- Merchant normalization, parse-confidence scores and duplicate checks.
-- Gmail synchronization through a background service worker.
-- Browser-local transaction storage and settings.
+| View | What it shows |
+| --- | --- |
+| Dashboard | Recorded debits, credits, net cash flow, largest expense, and recent activity |
+| Spending Insights | The top category and spending comparisons through the same calendar day in both months |
+| Transactions | Imported alerts, with filters for date, bank, amount, and category |
+| Settings | Bank selection, scan frequency, connection status, and JSON backup and restore |
 
-## Gmail setup
+**Supported banks** include SBI, HDFC, ICICI, Axis, Kotak, and Union Bank. The Gmail search narrows results to matching senders and transaction subjects. Recognized alerts are parsed in the extension, normalized, deduplicated by Gmail message ID, and saved in Chrome storage. A short alert excerpt may be included in the stored row.
 
-The manifest contains a Chrome-extension OAuth client ID. For your own installation, configure an OAuth client for your extension ID and replace `oauth2.client_id` in `manifest.json`. The requested Gmail scope is `gmail.readonly`; the extension also uses browser storage, identity, alarms and notification permissions.
+Gmail grants mailbox-level read-only access. ExpensePilot uses that access to search for bank alerts and read matching results. Bank templates vary, and only recognized formats are imported. Review the results alongside your bank statement.
 
-Gmail import needs a compatible OAuth configuration. Parser coverage depends on bank-email formats and has not been validated across real accounts here.
+## Development
 
-## Current limits
-
-- Several dashboard comparisons and insight messages are placeholders.
-- Ollama integration is not implemented. The insights page currently combines calculated summaries with fixed text.
-- There is no automated test suite, and the duplicate source tree still needs consolidation.
-
-Transactions are stored locally. Gmail import makes requests to Google's services; this is not an offline-only application. No separate application backend is included.
-
-The main code is in `pages/`, `scripts/background.js` and `utils/`. Charts use the bundled Chart.js library.
-
+Use Node.js 24 and run `node --test`. The tests cover all six parsers with synthetic test fixtures, retry and pagination behavior against a mocked Gmail API, duplicate detection, and the spending calculations. The installed extension generates no sample transactions.

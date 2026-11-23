@@ -11,7 +11,7 @@
     <div class="card welcome-card fade-in">
       <div class="welcome-logo">E</div>
       <h1>Welcome to ExpensePilot</h1>
-      <p>Automatic expense tracking from your bank emails. Nothing leaves your device — ever.</p>
+      <p>Connect Gmail to import transaction alerts from supported banks.</p>
 
       <div class="banks">
         <span class="bank-chip">HDFC</span>
@@ -24,13 +24,14 @@
 
       <div style="display:grid;gap:10px;margin-top:24px">
         <button class="btn btn-primary" id="connect">Connect Gmail (Read-Only)</button>
-        <button class="btn btn-ghost" id="demo">Explore with demo data</button>
+        <a class="btn btn-ghost" href="dashboard.html">Open dashboard</a>
+        <p id="connectionStatus" role="status" aria-live="polite"></p>
       </div>
 
       <div class="privacy-note">
         We request Gmail <b>read-only</b> access to scan transaction emails from supported banks.
         We store only extracted fields (date, amount, merchant, balance) in your browser's local
-        storage. Email contents are never uploaded, never saved, never shared.
+        storage. Gmail supplies matching messages. ExpensePilot processes them on this device.
       </div>
       <div style="margin-top:14px">
         <a href="privacy.html" style="color:var(--text-dim);font-size:12px">Read the full privacy policy →</a>

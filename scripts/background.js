@@ -1,154 +1,141 @@
-import { getToken, isTokenExpired } from '../utils/oauth.js';
-import { GmailClient } from '../utils/gmailClient.js';
-import { parseEmail, getParserNames } from '../utils/parsers/registry.js';
-import { normalizeMerchant } from '../utils/merchantEngine.js';
-import { computeConfidence } from '../utils/confidenceEngine.js';
-import { deduplicateTransactions } from '../utils/duplicateDetector.js';
-import { Logger } from '../utils/logger.js';
-import { get, set, KEYS, getSettings } from '../utils/storage.js';
+import { getToken, removeCachedToken, clearGmailAuthorization } from "../utils/oauth.js";
+import { GmailClient } from "../utils/gmailClient.js";
+import { parseEmail, getParserNames } from "../utils/parsers/registry.js";
+import { normalizeMerchant } from "../utils/merchantEngine.js";
+import { computeConfidence } from "../utils/confidenceEngine.js";
+import { mergeGmailTransactions } from "../utils/duplicateDetector.js";
+import { removeLegacyDemoRows } from "../utils/legacyDemo.js";
+import { get, set, remove, clearAll, KEYS, getSettings } from "../utils/storage.js";
 
 const ALARM = "ep-scan";
+const OVERLAP_MINUTES = 15;
+let syncInProgress;
+let disconnectInProgress;
 
-export async function performSync() {
-  Logger.info('sync', 'Starting background sync');
+export function performSync() {
+  if (disconnectInProgress) return Promise.resolve({ ok: false, error: "Gmail is disconnecting." });
+  syncInProgress ??= syncGmail().finally(() => { syncInProgress = undefined; });
+  return syncInProgress;
+}
+
+async function syncGmail() {
+  if (!(await get(KEYS.GMAIL_CONNECTED, false))) {
+    return { ok: false, error: "Connect Gmail in Settings to scan bank alerts." };
+  }
+
+  let token;
   try {
-    const isConnected = await get(KEYS.GMAIL_CONNECTED, false);
-    if (!isConnected) {
-      Logger.info('sync', 'Gmail not connected, skipping');
-      return;
-    }
-
-    const token = await getToken();
-    if (!token) {
-      Logger.warn('sync', 'No valid token found');
-      return;
-    }
-
+    token = await getToken();
+    if (!token) throw new Error("AUTH_EXPIRED");
     const client = new GmailClient(token);
     const settings = await getSettings();
-    const banks = settings.supportedBanks || getParserNames();
-    
-    // First, sync new messages based on history if available
-    let historyId = await get('ep_history_id', null);
-    let messagesToFetch = [];
-    
-    if (historyId) {
-      Logger.debug('sync', `Fetching history since ${historyId}`);
-      const hist = await client.getHistory(historyId);
-      if (hist.fullSyncRequired) {
-        Logger.warn('sync', 'History expired, full sync required');
-        historyId = null;
-      } else {
-        historyId = hist.historyId;
-        const newMsgIds = new Set();
-        hist.history.forEach(h => {
-          if (h.messagesAdded) {
-            h.messagesAdded.forEach(ma => newMsgIds.add(ma.message.id));
-          }
-        });
-        messagesToFetch = Array.from(newMsgIds);
-      }
-    }
+    const banks = getParserNames().filter((bank) => settings.supportedBanks?.includes(bank));
+    const previous = Date.parse(await get(KEYS.LAST_SCAN));
+    const since = Number.isFinite(previous) ? previous - OVERLAP_MINUTES * 60_000 : null;
+    const started = new Date().toISOString();
+    const existing = removeLegacyDemoRows(await get(KEYS.TRANSACTIONS, []));
+    const seen = new Set(existing.map((transaction) => transaction.gmailMessageId).filter(Boolean));
+    const incoming = [];
 
-    if (!historyId) {
-      Logger.debug('sync', 'Performing full search');
-      const query = GmailClient.buildBankQuery(banks);
-      let pageToken = null;
-      let count = 0;
+    if (banks.length) {
+      const query = GmailClient.buildBankQuery(banks, since);
+      let pageToken;
       do {
-        const searchRes = await client.searchMessages(query, 100, pageToken);
-        searchRes.messages.forEach(m => messagesToFetch.push(m.id));
-        pageToken = searchRes.nextPageToken;
-        count++;
-      } while (pageToken && count < 10);
-      
-      const profile = await client.getProfile();
-      historyId = profile.historyId;
+        const page = await client.searchMessages(query, 100, pageToken);
+        const ids = [...new Set(page.messages.map(({ id }) => id))].filter((id) => !seen.has(id));
+        const messages = await client.getMessages(ids);
+        for (const message of messages) {
+          const parsed = parseEmail(message.from, message.subject, message.body, message.date);
+          if (!parsed || !banks.includes(parsed.bank)) continue;
+          const merchant = normalizeMerchant(parsed.merchant);
+          const transaction = { ...parsed, merchant: merchant.canonical, category: merchant.category };
+          incoming.push({ ...transaction, ...computeConfidence(transaction), gmailMessageId: message.id });
+          seen.add(message.id);
+        }
+        pageToken = page.nextPageToken;
+      } while (pageToken);
     }
 
-    if (messagesToFetch.length === 0) {
-      Logger.info('sync', 'No new messages to process');
-      if (historyId) await set('ep_history_id', historyId);
-      await set(KEYS.LAST_SCAN, new Date().toISOString());
-      return;
-    }
-
-    Logger.info('sync', `Fetching ${messagesToFetch.length} messages`);
-    const msgs = await client.getMessages(messagesToFetch);
-    
-    let existingTxs = await get(KEYS.TRANSACTIONS, []);
-    let newTxs = [];
-
-    for (const msg of msgs) {
-      const parsed = parseEmail(msg.from, msg.subject, msg.body, msg.date);
-      if (parsed) {
-        // Run through merchant engine
-        const mInfo = normalizeMerchant(parsed.merchant);
-        parsed.merchant = mInfo.canonical;
-        parsed.category = mInfo.category;
-        
-        // Add confidence
-        const cInfo = computeConfidence(parsed);
-        parsed.confidence = cInfo.confidence;
-        parsed.confidenceLevel = cInfo.confidenceLevel;
-        parsed.reasoning = cInfo.reasoning;
-        
-        newTxs.push(parsed);
-      }
-    }
-
-    if (newTxs.length > 0) {
-      Logger.info('sync', `Parsed ${newTxs.length} new transactions`);
-      const combined = [...existingTxs, ...newTxs];
-      const deduplicated = deduplicateTransactions(combined);
-      await set(KEYS.TRANSACTIONS, deduplicated);
-      Logger.info('sync', `Saved ${deduplicated.length} total transactions (${deduplicated.length - existingTxs.length} added)`);
-    }
-
-    if (historyId) await set('ep_history_id', historyId);
-    await set(KEYS.LAST_SCAN, new Date().toISOString());
-    Logger.info('sync', 'Sync completed successfully');
-
-    // Notify frontend
-    chrome.runtime.sendMessage({ type: "ep_sync_complete" }).catch(() => {});
-
-  } catch (err) {
-    Logger.error('sync', 'Sync failed', err.message);
-    if (err.message === 'AUTH_EXPIRED') {
+    // Re-read before writing so edits made while Gmail was loading are preserved.
+    const current = removeLegacyDemoRows(await get(KEYS.TRANSACTIONS, []));
+    const merged = mergeGmailTransactions(current, incoming);
+    await set(KEYS.TRANSACTIONS, merged);
+    await set(KEYS.LAST_SCAN, started);
+    await remove(KEYS.SYNC_ERROR);
+    return { ok: true, added: merged.length - current.length };
+  } catch (error) {
+    const expired = error.message === "AUTH_EXPIRED";
+    if (expired) {
       await set(KEYS.GMAIL_CONNECTED, false);
-      if (chrome.notifications) {
-        chrome.notifications.create({
-          type: 'basic',
-          iconUrl: 'assets/icon.png',
-          title: 'ExpensePilot Disconnected',
-          message: 'Your Gmail connection expired. Please reconnect in the app.'
-        });
-      }
+      await removeCachedToken(token).catch(() => {});
     }
+    const message = expired ? "Gmail access expired. Reconnect in Settings and try again." : error.message;
+    await set(KEYS.SYNC_ERROR, message);
+    return { ok: false, error: message };
   }
 }
 
-chrome.runtime.onInstalled.addListener(async () => {
+async function disconnect(wipe) {
+  if (disconnectInProgress) return disconnectInProgress;
+  disconnectInProgress = (async () => {
+    await syncInProgress;
+    await set(KEYS.GMAIL_CONNECTED, false);
+    await clearGmailAuthorization().catch(() => {});
+    if (wipe) {
+      await clearAll();
+      await scheduleScan();
+    }
+    else {
+      await remove(KEYS.LAST_SCAN);
+      await remove(KEYS.SYNC_ERROR);
+    }
+    return { ok: true };
+  })().finally(() => { disconnectInProgress = undefined; });
+  return disconnectInProgress;
+}
+
+async function scheduleScan() {
   const settings = await getSettings();
-  chrome.alarms.create(ALARM, { periodInMinutes: settings.scanFrequency || 30 });
-  chrome.tabs.create({ url: chrome.runtime.getURL("pages/welcome.html") });
-});
+  await chrome.alarms.create(ALARM, { periodInMinutes: settings.scanFrequency || 30 });
+}
 
-chrome.alarms.onAlarm.addListener(async (a) => {
-  if (a.name !== ALARM) return;
-  await performSync();
-});
+if (globalThis.chrome?.runtime?.onInstalled) {
+  chrome.runtime.onInstalled.addListener(async ({ reason }) => {
+    const transactions = await get(KEYS.TRANSACTIONS, []);
+    const realTransactions = removeLegacyDemoRows(transactions);
+    if (transactions.length !== realTransactions.length) await set(KEYS.TRANSACTIONS, realTransactions);
+    await chrome.storage.local.remove(["ep_oauth_token", "ep_oauth_token_expiry", "ep_history_id"]);
+    await scheduleScan();
+    if (reason === "install") await chrome.tabs.create({ url: chrome.runtime.getURL("pages/welcome.html") });
+  });
 
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  if (msg.type === "ep_reschedule") {
-    chrome.alarms.clear(ALARM, () => {
-      chrome.alarms.create(ALARM, { periodInMinutes: msg.freq || 30 });
-      sendResponse({ ok: true });
-    });
+  chrome.runtime.onStartup.addListener(async () => {
+    if (!(await chrome.alarms.get(ALARM))) await scheduleScan();
+  });
+
+  chrome.alarms.onAlarm.addListener(({ name }) => {
+    if (name === ALARM) void performSync();
+  });
+
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    let operation;
+    switch (message.type) {
+      case "ep_reschedule":
+        operation = scheduleScan().then(() => ({ ok: true }));
+        break;
+      case "ep_force_sync":
+        operation = performSync();
+        break;
+      case "ep_disconnect":
+        operation = disconnect(false);
+        break;
+      case "ep_wipe":
+        operation = disconnect(true);
+        break;
+      default:
+        return false;
+    }
+    operation.then(sendResponse, (error) => sendResponse({ ok: false, error: error.message }));
     return true;
-  }
-  if (msg.type === "ep_force_sync") {
-    performSync().then(() => sendResponse({ ok: true }));
-    return true;
-  }
-});
+  });
+}

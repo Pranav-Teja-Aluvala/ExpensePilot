@@ -17,18 +17,18 @@ export class KotakParser extends ParserBase {
     let reasoning = [];
     let confidence = 0;
     
-    const debitMatch = text.match(/(?:Rs\.?|INR|₹)\s*([\d,.]+)\s*has been debited.*towards\s*(.*?)\s*on\s*([\d\/]+|\d{1,2}[a-zA-Z]{3}\d{2,4})(?:\.|\s*Avl|\s*Available)/i);
-    const creditMatch = text.match(/credited with (?:Rs\.?|INR|₹)\s*([\d,.]+)\s*on\s*([\d\/]+|\d{1,2}[a-zA-Z]{3}\d{2,4})\.\s*(.*?)(?:\.|\s*Avl|\s*Available)/i);
+    const debitMatch = text.match(/(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d+)?)(?![\d,]|\.\d)\s*has been debited.*towards\s*(.*?)\s*on\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}[\s-]?[a-zA-Z]{3}[\s-]?\d{2,4})(?:\.|\s*Avl|\s*Available)/i);
+    const creditMatch = text.match(/credited with (?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d+)?)(?![\d,]|\.\d)\s*on\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}[\s-]?[a-zA-Z]{3}[\s-]?\d{2,4})\.\s*(.*?)(?:\.|\s*Avl|\s*Available)/i);
 
     if (debitMatch) {
       type = 'Debit';
-      if (!amount) amount = this.normalizeAmount(debitMatch[1]);
+      amount = this.normalizeAmount(debitMatch[1]);
       merchant = debitMatch[2].trim();
       dateStr = debitMatch[3];
       reasoning.push('Matched Kotak Debit pattern');
     } else if (creditMatch) {
       type = 'Credit';
-      if (!amount) amount = this.normalizeAmount(creditMatch[1]);
+      amount = this.normalizeAmount(creditMatch[1]);
       dateStr = creditMatch[2];
       merchant = creditMatch[3].trim();
       reasoning.push('Matched Kotak Credit pattern');

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "ExpensePilot",
-  "version": "1.0.0",
-  "description": "Privacy-first expense tracker that auto-parses bank transaction emails from Gmail. All data stays on your device.",
+  "version": "1.1.0",
+  "description": "Import supported bank transaction alerts from Gmail and review your spending in Chrome.",
   "permissions": ["storage", "identity", "alarms", "notifications", "unlimitedStorage"],
   "host_permissions": ["https://gmail.googleapis.com/*"],
   "action": {

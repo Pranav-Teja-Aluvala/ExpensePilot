@@ -1,7 +1,7 @@
 import { mountLayout } from "./_layout.js";
     import { get, KEYS } from "../utils/storage.js";
     import { CATEGORIES } from "../utils/categorize.js";
-    import { inr, fmtDate } from "../utils/format.js";
+    import { inr, fmtDate, escapeHtml } from "../utils/format.js";
 
     await mountLayout("transactions");
 
@@ -11,7 +11,7 @@ import { mountLayout } from "./_layout.js";
     const catSel = document.getElementById("fCat");
     CATEGORIES.forEach((c) => catSel.insertAdjacentHTML("beforeend", `<option>${c}</option>`));
     const bankSel = document.getElementById("fBank");
-    banks.forEach((b) => bankSel.insertAdjacentHTML("beforeend", `<option>${b}</option>`));
+    banks.forEach((b) => bankSel.insertAdjacentHTML("beforeend", `<option>${escapeHtml(b)}</option>`));
 
     const state = { page: 1, per: 15 };
 
@@ -23,7 +23,7 @@ import { mountLayout } from "./_layout.js";
       const from = document.getElementById("fFrom").value;
       const to = document.getElementById("fTo").value;
       return txs.filter((t) => {
-        if (q && !t.merchant.toLowerCase().includes(q)) return false;
+        if (q && !String(t.merchant ?? '').toLowerCase().includes(q)) return false;
         if (c && t.category !== c) return false;
         if (b && t.bank !== b) return false;
         if (ty && t.type !== ty) return false;
@@ -44,13 +44,13 @@ import { mountLayout } from "./_layout.js";
       document.getElementById("tbody").innerHTML = slice.length ? slice.map((t) => `
         <tr>
           <td>${fmtDate(t.date, { year: true })}</td>
-          <td style="font-weight:600">${t.merchant}</td>
-          <td><span class="pill pill-cat">${t.category}</span></td>
-          <td><span class="bank-chip">${t.bank}</span></td>
-          <td><span class="pill ${t.type === "Credit" ? "pill-credit" : "pill-debit"}">${t.type}</span></td>
+          <td style="font-weight:600">${escapeHtml(t.merchant)}</td>
+          <td><span class="pill pill-cat">${escapeHtml(t.category)}</span></td>
+          <td><span class="bank-chip">${escapeHtml(t.bank)}</span></td>
+          <td><span class="pill ${t.type === "Credit" ? "pill-credit" : "pill-debit"}">${escapeHtml(t.type)}</span></td>
           <td style="text-align:right;font-weight:600" class="currency">${t.type === "Credit" ? "+" : "-"}${inr(t.amount)}</td>
           <td style="text-align:right;color:var(--text-dim)" class="currency">${inr(t.balance || 0)}</td>
-        </tr>`).join("") : `<tr><td colspan="7"><div class="empty"><h3>No matches</h3><p>Try clearing filters.</p></div></td></tr>`;
+        </tr>`).join("") : `<tr><td colspan="7"><div class="empty"><h3>${txs.length ? "No matches" : "No imported transactions"}</h3><p>${txs.length ? "Try clearing filters." : 'Connect Gmail in <a href="settings.html">Settings</a> and run a scan.'}</p></div></td></tr>`;
       document.getElementById("pinfo").textContent = `Page ${state.page} of ${pages}`;
     }
 

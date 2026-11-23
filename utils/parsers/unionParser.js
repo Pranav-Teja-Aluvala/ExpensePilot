@@ -17,18 +17,18 @@ export class UnionParser extends ParserBase {
     let reasoning = [];
     let confidence = 0;
     
-    const debitMatch = text.match(/Debited (?:Rs\.?|INR|₹)\s*([\d,.]+)\s*on\s*([\d-]+|\d{1,2}[a-zA-Z]{3}\d{2,4})\s*by\s*(.*?)(?:\.|\s*Bal)/i);
-    const creditMatch = text.match(/Credited (?:Rs\.?|INR|₹)\s*([\d,.]+)\s*on\s*([\d-]+|\d{1,2}[a-zA-Z]{3}\d{2,4})\.\s*(.*?)(?:\.|\s*Bal)/i);
+    const debitMatch = text.match(/Debited (?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d+)?)(?![\d,]|\.\d)\s*on\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}[\s-]?[a-zA-Z]{3}[\s-]?\d{2,4})\s*by\s*(.*?)(?:\.|\s*Bal)/i);
+    const creditMatch = text.match(/Credited (?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d+)?)(?![\d,]|\.\d)\s*on\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}[\s-]?[a-zA-Z]{3}[\s-]?\d{2,4})\.\s*(.*?)(?:\.|\s*Bal)/i);
 
     if (debitMatch) {
       type = 'Debit';
-      if (!amount) amount = this.normalizeAmount(debitMatch[1]);
+      amount = this.normalizeAmount(debitMatch[1]);
       dateStr = debitMatch[2];
       merchant = debitMatch[3].trim();
       reasoning.push('Matched Union Debit pattern');
     } else if (creditMatch) {
       type = 'Credit';
-      if (!amount) amount = this.normalizeAmount(creditMatch[1]);
+      amount = this.normalizeAmount(creditMatch[1]);
       dateStr = creditMatch[2];
       merchant = creditMatch[3].trim();
       reasoning.push('Matched Union Credit pattern');

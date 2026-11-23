@@ -5,7 +5,7 @@ import { get, KEYS } from "../utils/storage.js";
     (async () => {
       const txs = (await get(KEYS.TRANSACTIONS, [])) || [];
       const connected = await get(KEYS.GMAIL_CONNECTED, false);
-      document.getElementById("statusLabel").textContent = connected ? "Gmail connected" : "Demo mode";
+      document.getElementById("statusLabel").textContent = connected ? "Gmail connected" : "Gmail not connected";
       const s = monthStats(txs);
       document.getElementById("spent").textContent = inr(s.spent);
       document.getElementById("income").textContent = inr(s.income);

@@ -17,25 +17,25 @@ export class ICICIParser extends ParserBase {
     let reasoning = [];
     let confidence = 0;
     
-    const debitMatch = text.match(/debited for (?:Rs\.?|INR|₹)\s*([\d,.]+)\s*on\s*([\d-]+|\d{1,2}[a-zA-Z]{3}\d{2,4});\s*(.*?)(?:\.|\s*credited|\s*Avl)/i);
-    const upiMatch = text.match(/(?:Rs\.?|INR|₹)\s*([\d,.]+)\s*debited.*on\s*([\d-]+|\d{1,2}[a-zA-Z]{3}\d{2,4})\s*to(?:\s*VPA)?\s*(.*?)(?:\s*\(?UPI|\.|\s*Avl)/i);
-    const creditMatch = text.match(/credited (?:Rs\.?|INR|₹)\s*([\d,.]+)\s*on\s*([\d-]+|\d{1,2}[a-zA-Z]{3}\d{2,4});\s*(.*?)(?:\.|\s*Avl)/i);
+    const debitMatch = text.match(/debited for (?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d+)?)(?![\d,]|\.\d)\s*on\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}[\s-]?[a-zA-Z]{3}[\s-]?\d{2,4});\s*(.*?)(?:\.|\s*credited|\s*Avl)/i);
+    const upiMatch = text.match(/(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d+)?)(?![\d,]|\.\d)\s*debited.*on\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}[\s-]?[a-zA-Z]{3}[\s-]?\d{2,4})\s*to(?:\s*VPA)?\s*(.*?)(?:\s*\(?UPI|\.|\s*Avl)/i);
+    const creditMatch = text.match(/credited (?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d+)?)(?![\d,]|\.\d)\s*on\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}[\s-]?[a-zA-Z]{3}[\s-]?\d{2,4});\s*(.*?)(?:\.|\s*Avl)/i);
 
     if (upiMatch) {
       type = 'Debit';
-      if (!amount) amount = this.normalizeAmount(upiMatch[1]);
+      amount = this.normalizeAmount(upiMatch[1]);
       dateStr = upiMatch[2];
       merchant = upiMatch[3].trim();
       reasoning.push('Matched ICICI UPI pattern');
     } else if (debitMatch) {
       type = 'Debit';
-      if (!amount) amount = this.normalizeAmount(debitMatch[1]);
+      amount = this.normalizeAmount(debitMatch[1]);
       dateStr = debitMatch[2];
       merchant = debitMatch[3].trim();
       reasoning.push('Matched ICICI Debit pattern');
     } else if (creditMatch) {
       type = 'Credit';
-      if (!amount) amount = this.normalizeAmount(creditMatch[1]);
+      amount = this.normalizeAmount(creditMatch[1]);
       dateStr = creditMatch[2];
       merchant = creditMatch[3].trim();
       reasoning.push('Matched ICICI Credit pattern');

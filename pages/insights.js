@@ -1,35 +1,30 @@
 import { mountLayout } from "./_layout.js";
-    import { get, KEYS } from "../utils/storage.js";
-    import { monthStats, byCategory, monthlyTrend } from "../utils/stats.js";
-    import { inr } from "../utils/format.js";
+import { get, KEYS } from "../utils/storage.js";
+import { spendingInsights } from "../utils/spendingInsights.js";
 
-    await mountLayout("insights");
-    const txs = (await get(KEYS.TRANSACTIONS, [])) || [];
+await mountLayout("insights");
+const transactions = await get(KEYS.TRANSACTIONS, []);
+const container = document.getElementById("insights");
 
-    const s = monthStats(txs);
-    const cats = byCategory(s.transactions);
-    const top = cats[0];
-    const trend = monthlyTrend(txs, 3);
-    const prev = trend.spendVals[trend.spendVals.length - 2] || 0;
-    const cur = trend.spendVals[trend.spendVals.length - 1] || 0;
-    const pct = prev ? Math.round(((cur - prev) / prev) * 100) : 0;
+for (const item of spendingInsights(transactions || [])) {
+  const card = document.createElement("article");
+  card.className = "card";
 
-    const items = [
-      { icon: "🍔", title: top ? `${top[0]} is your biggest spend` : "No expenses yet", body: top ? `You've spent ${inr(top[1])} on ${top[0]} this month — that's ${Math.round((top[1] / s.spent) * 100)}% of total spending.` : "Add transactions to see insights." },
-      { icon: pct >= 0 ? "📈" : "📉", title: `Spending is ${pct >= 0 ? "up" : "down"} ${Math.abs(pct)}% vs last month`, body: `You spent ${inr(cur)} this month compared to ${inr(prev)} last month.` },
-      { icon: "🚗", title: "Transportation looks stable", body: `Average weekly transport spend is holding steady. Consider a monthly pass if you commute daily.` },
-      { icon: "💡", title: "Savings tip", body: s.savings >= 0 ? `You saved ${inr(s.savings)} so far. Automate a recurring transfer to a savings account.` : `You've overspent by ${inr(-s.savings)} this month. Review your top 3 categories.` },
-      { icon: "🛒", title: "Subscription check", body: "Recurring debits detected for Netflix, Spotify and Airtel. Cancel any you don't use." },
-      { icon: "✦", title: "Coming soon: Ollama-powered insights", body: "Run a local LLM to get natural-language explanations of your spending — 100% offline." },
-    ];
+  const insight = document.createElement("div");
+  insight.className = "insight";
 
-    document.getElementById("insights").innerHTML = items.map((i) => `
-      <div class="card">
-        <div class="insight">
-          <div class="insight-badge">${i.icon}</div>
-          <div>
-            <h4>${i.title}</h4>
-            <p>${i.body}</p>
-          </div>
-        </div>
-      </div>`).join("");
+  const badge = document.createElement("div");
+  badge.className = "insight-badge";
+  badge.setAttribute("aria-hidden", "true");
+  badge.textContent = item.icon;
+
+  const text = document.createElement("div");
+  const title = document.createElement("h4");
+  title.textContent = item.title;
+  const body = document.createElement("p");
+  body.textContent = item.body;
+  text.append(title, body);
+  insight.append(badge, text);
+  card.append(insight);
+  container.append(card);
+}
