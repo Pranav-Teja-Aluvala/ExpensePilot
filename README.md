@@ -33,9 +33,19 @@ Gmail import needs a compatible OAuth configuration. Parser coverage depends on 
 
 - Several dashboard comparisons and insight messages are placeholders.
 - Ollama integration is not implemented. The insights page currently combines calculated summaries with fixed text.
-- There is no automated test suite, and the duplicate source tree still needs consolidation.
+- Automated test coverage is limited to the SBI card debit regression. The duplicate source tree still needs consolidation.
 
 Transactions are stored locally. Gmail import makes requests to Google's services; this is not an offline-only application. No separate application backend is included.
 
 The main code is in `pages/`, `scripts/background.js` and `utils/`. Charts use the bundled Chart.js library.
 
+
+## Run the parser regression test
+
+From the repository root, run this command with Node.js 22 or newer:
+
+```sh
+node --test tests/sbi-card-debit.test.mjs
+```
+
+The test checks that an SBI card alert is parsed using the debit amount and merchant when the available balance appears first.
