@@ -16,3 +16,10 @@ test('SBI card alert extracts the debit amount and merchant', () => {
   assert.equal(transaction.amount, fixture.expected.amount);
   assert.equal(transaction.merchant, fixture.expected.merchant);
 });
+
+test('an unrecognized sender does not trigger the SBI parser', () => {
+  const transaction = parseEmail(
+    'alerts@example.com', fixture.subject, fixture.body, '2026-11-23T00:00:00Z',
+  );
+  assert.equal(transaction, null);
+});
