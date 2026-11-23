@@ -22,6 +22,8 @@ export class SBIParser extends ParserBase {
     const debitUpiMatch = text.match(/(?:Rs\.?|INR|₹)\s*([\d,.]+)\s*debited.*on\s*([\d-]+|\d{1,2}[a-zA-Z]{3}\d{2,4})\s*(?:to|trf to)\s*(.*?)(?:\.|\s*UPI|\s*Avl)/i);
     const atmMatch = text.match(/ATM cash withdrawal.*(?:Rs\.?|INR|₹)\s*([\d,.]+).*on\s*([\d-]+|\d{1,2}[a-zA-Z]{3}\d{2,4})\s*at\s*(.*?)(?:\.|\s*Avl)/i);
 
+    const cardDebit = text.match(/\bcard\s+(?:was\s+)?debited\s+(?:INR|Rs\.?|₹)\s*([\d,]+(?:\.\d{1,2})?)\s+at\s+(.+?)(?:[.!?](?=\s|$)|$)/i);
+
     // Credit patterns
     const creditMatch = text.match(/credited (?:by |for )?(?:Rs\.?|INR|₹)\s*([\d,.]+)\s*on\s*([\d-]+|\d{1,2}[a-zA-Z]{3}\d{2,4})/i);
 
@@ -43,6 +45,11 @@ export class SBIParser extends ParserBase {
       dateStr = atmMatch[2];
       merchant = 'ATM Cash Withdrawal ' + atmMatch[3].trim();
       reasoning.push('Matched SBI ATM pattern');
+    } else if (cardDebit) {
+      type = 'Debit';
+      amount = this.normalizeAmount(cardDebit[1]);
+      merchant = cardDebit[2].trim();
+      reasoning.push('Matched SBI card debit amount and merchant');
     } else if (creditMatch) {
       type = 'Credit';
       if (!amount) amount = this.normalizeAmount(creditMatch[1]);
