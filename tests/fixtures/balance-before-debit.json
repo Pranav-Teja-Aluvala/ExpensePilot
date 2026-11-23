@@ -1,0 +1,11 @@
+{
+  "description": "The available balance appears before the transaction amount.",
+  "subject": "Debit alert",
+  "body": "Available balance: INR 12,450.00. Your card was debited INR 850.00 at ACME BOOKS.",
+  "expected": {
+    "amount": 850,
+    "currency": "INR",
+    "direction": "debit",
+    "merchant": "ACME BOOKS"
+  }
+}
