@@ -23,3 +23,15 @@ test('an unrecognized sender does not trigger the SBI parser', () => {
   );
   assert.equal(transaction, null);
 });
+
+test('SBI card alert preserves a grouped rupee amount with paise', () => {
+  const transaction = parseEmail(
+    'alerts@sbi.co.in',
+    fixture.subject,
+    'Available balance: Rs. 20,000.00. Your card was debited Rs. 1,234.50 at CITY BOOKS.',
+    '2026-11-23T00:00:00Z',
+  );
+  assert.ok(transaction);
+  assert.equal(transaction.amount, 1234.5);
+  assert.equal(transaction.merchant, 'CITY BOOKS');
+});
