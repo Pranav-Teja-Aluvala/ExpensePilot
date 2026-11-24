@@ -35,3 +35,16 @@ test('SBI card alert preserves a grouped rupee amount with paise', () => {
   assert.equal(transaction.amount, 1234.5);
   assert.equal(transaction.merchant, 'CITY BOOKS');
 });
+
+
+test('SBI transfer uses the debit amount when the balance appears first', () => {
+  const transaction = parseEmail(
+    'alerts@sbi.co.in',
+    fixture.subject,
+    'Available balance: INR 12,450.00. Your account was debited for INR 850.00 on 23-11-2026 by ACME BOOKS.',
+    '2026-11-23T00:00:00Z',
+  );
+  assert.ok(transaction);
+  assert.equal(transaction.amount, 850);
+  assert.equal(transaction.merchant, 'ACME BOOKS');
+});
