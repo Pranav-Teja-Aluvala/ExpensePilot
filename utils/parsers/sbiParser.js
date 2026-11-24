@@ -29,7 +29,7 @@ export class SBIParser extends ParserBase {
 
     if (debitTrfMatch) {
       type = 'Debit';
-      if (!amount) amount = this.normalizeAmount(debitTrfMatch[1]);
+      amount = this.normalizeAmount(debitTrfMatch[1]) || amount;
       dateStr = debitTrfMatch[2];
       merchant = debitTrfMatch[3].trim();
       reasoning.push('Matched SBI Debit Transfer pattern');
