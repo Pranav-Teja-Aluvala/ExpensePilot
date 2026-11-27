@@ -14,7 +14,7 @@ export function exportToJSON(transactions, settings) {
 export function exportToCSV(transactions) {
   const escapeCSV = (val) => {
     const str = String(val ?? '');
-    if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+    if (str.trim() !== str || str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
       return '"' + str.replace(/"/g, '""') + '"';
     }
     return str;
@@ -49,21 +49,24 @@ export function importFromJSON(jsonString) {
 
 export function importFromCSV(csvString) {
   try {
-    const lines = parseCSVRecords(csvString);
+    const lines = parseCSVRecords(csvString.replace(/^\uFEFF/, ''));
     if (lines.length < 2) return null;
     const transactions = [];
     for (let i = 1; i < lines.length; i++) {
       const cols = lines[i];
-      if (cols.length < 4) continue;
+      if (cols.length < 4 || cols.length > CSV_HEADERS.length) continue;
+      const amount = Number(cols[1]);
+      const balance = Number(cols[6] || 0);
+      if (!Number.isFinite(amount) || !Number.isFinite(balance)) continue;
       const tx = {
         id: `csv-import-${i}-${Date.now()}`,
         date: parseImportDate(cols[0]),
-        amount: parseFloat(cols[1]) || 0,
+        amount,
         type: cols[2] || 'Debit',
         merchant: cols[3] || 'Unknown',
         category: cols[4] || 'Others',
         bank: cols[5] || 'Unknown',
-        balance: parseFloat(cols[6]) || 0,
+        balance,
       };
       if (validateTransaction(tx)) transactions.push(tx);
     }
@@ -73,58 +76,61 @@ export function importFromCSV(csvString) {
   }
 }
 
-function parseCSVRecords(line) {
+function parseCSVRecords(text) {
   const records = [];
-  let result = [];
-  let current = '';
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (inQuotes) {
-      if (ch === '"') {
-        if (i + 1 < line.length && line[i + 1] === '"') {
-          current += '"';
-          i++;
-        } else {
-          inQuotes = false;
-        }
+  let row = [];
+  let field = '';
+  let quoted = false;
+  let closed = false;
+  function finishField() {
+    row.push(closed ? field : field.trim());
+    field = '';
+    closed = false;
+  }
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quoted) {
+      if (ch !== '"') field += ch;
+      else if (text[i + 1] === '"') {
+        field += '"';
+        i++;
       } else {
-        current += ch;
+        quoted = false;
+        closed = true;
       }
+    } else if (ch === ',') {
+      finishField();
+    } else if (ch === '\r' || ch === '\n') {
+      if (ch === '\r' && text[i + 1] === '\n') i++;
+      finishField();
+      records.push(row);
+      row = [];
+    } else if (ch === '"' && !field && !closed) {
+      quoted = true;
+    } else if (ch === '"' || closed) {
+      throw new Error('Unexpected character in quoted CSV field');
     } else {
-      if (ch === '"') {
-        inQuotes = true;
-      } else if (ch === '\n' || ch === '\r') {
-        if (ch === '\r' && line[i + 1] === '\n') i++;
-        result.push(current.trim());
-        records.push(result);
-        result = [];
-        current = '';
-      } else if (ch === ',') {
-        result.push(current.trim());
-        current = '';
-      } else {
-        current += ch;
-      }
+      field += ch;
     }
   }
-  result.push(current.trim());
-  records.push(result);
+  if (quoted) throw new Error('Unclosed CSV field');
+  finishField();
+  records.push(row);
   return records;
 }
 
-function parseImportDate(dateStr) {
-  if (!dateStr) return new Date().toISOString();
-  const iso = new Date(dateStr);
-  if (!isNaN(iso.getTime()) && dateStr.includes('-')) return iso.toISOString();
-  const m = dateStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
-  if (m) {
-    let year = parseInt(m[3], 10);
-    if (year < 100) year += 2000;
-    const d = new Date(year, parseInt(m[2], 10) - 1, parseInt(m[1], 10));
-    if (!isNaN(d.getTime())) return d.toISOString();
-  }
-  return new Date().toISOString();
+function parseImportDate(value) {
+  const local = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4}|\d{2})$/.exec(value);
+  const iso = /^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/.exec(value);
+  if (!local && !iso) return null;
+  const day = Number(local ? local[1] : iso[3]);
+  const month = Number(local ? local[2] : iso[2]);
+  let year = Number(local ? local[3] : iso[1]);
+  if (local && local[3].length === 2) year += 2000;
+  const calendar = new Date(year, month - 1, day);
+  if (calendar.getFullYear() !== year || calendar.getMonth() !== month - 1 || calendar.getDate() !== day) return null;
+  const date = local ? calendar : new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toISOString() : null;
 }
 
 function validateTransaction(tx) {
