@@ -1,3 +1,4 @@
+import { exportToCSV, downloadBlob } from '../utils/exportImport.js';
 import { mountLayout } from "./_layout.js";
     import { get, set, remove, clearAll, KEYS, getSettings, saveSettings } from "../utils/storage.js";
 
@@ -53,6 +54,9 @@ import { mountLayout } from "./_layout.js";
     };
 
     // Export / Import / Wipe
+    document.getElementById("csvBtn").onclick = async () => {
+      downloadBlob(exportToCSV(await get(KEYS.TRANSACTIONS, [])), "expensepilot-transactions.csv");
+    };
     document.getElementById("exportBtn").onclick = async () => {
       const data = {
         transactions: await get(KEYS.TRANSACTIONS, []),
