@@ -9,7 +9,7 @@ import { mountLayout } from "./_layout.js";
     const banksEl = document.getElementById("banks");
     function renderBanks() {
       banksEl.innerHTML = settings.supportedBanks.map((b, i) => `
-        <span class="bank-chip">${b} <button data-i="${i}" style="background:none;border:none;color:var(--text-mute);cursor:pointer;font-size:14px;margin-left:4px">Ã—</button></span>
+        <span class="bank-chip">${b} <button data-i="${i}" style="background:none;border:none;color:var(--text-mute);cursor:pointer;font-size:14px;margin-left:4px">×</button></span>
       `).join("");
       banksEl.querySelectorAll("button").forEach((btn) => {
         btn.onclick = async () => {
@@ -90,7 +90,7 @@ import { mountLayout } from "./_layout.js";
     // Gmail
     const connected = await get(KEYS.GMAIL_CONNECTED, false);
     document.getElementById("gmailStatus").innerHTML = connected
-      ? `<span class="pill pill-credit">Connected</span> <span style="color:var(--text-dim);font-size:13px;margin-left:8px">Last scan: ${(await get(KEYS.LAST_SCAN)) || "â€”"}</span>`
+      ? `<span class="pill pill-credit">Connected</span> <span style="color:var(--text-dim);font-size:13px;margin-left:8px">Last scan: ${(await get(KEYS.LAST_SCAN)) || "—"}</span>`
       : `<span class="pill pill-debit">Not connected</span>`;
     document.getElementById("disconnect").onclick = async () => {
       await remove(KEYS.GMAIL_CONNECTED);
