@@ -14,7 +14,7 @@ export function exportToJSON(transactions, settings) {
 export function exportToCSV(transactions) {
   const escapeCSV = (val) => {
     const str = String(val ?? '');
-    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
       return '"' + str.replace(/"/g, '""') + '"';
     }
     return str;
@@ -26,11 +26,11 @@ export function exportToCSV(transactions) {
       tx.date ? new Date(tx.date).toLocaleDateString('en-IN') : '',
       tx.amount || 0,
       tx.type || '',
-      escapeCSV(tx.merchant || ''),
+      tx.merchant || '',
       tx.category || '',
       tx.bank || '',
       tx.balance || 0,
-    ].join(','));
+    ].map(escapeCSV).join(','));
   }
   return new Blob([lines.join('\n')], { type: 'text/csv' });
 }
@@ -49,11 +49,11 @@ export function importFromJSON(jsonString) {
 
 export function importFromCSV(csvString) {
   try {
-    const lines = csvString.trim().split(/\r?\n/);
+    const lines = parseCSVRecords(csvString);
     if (lines.length < 2) return null;
     const transactions = [];
     for (let i = 1; i < lines.length; i++) {
-      const cols = parseCSVLine(lines[i]);
+      const cols = lines[i];
       if (cols.length < 4) continue;
       const tx = {
         id: `csv-import-${i}-${Date.now()}`,
@@ -73,8 +73,9 @@ export function importFromCSV(csvString) {
   }
 }
 
-function parseCSVLine(line) {
-  const result = [];
+function parseCSVRecords(line) {
+  const records = [];
+  let result = [];
   let current = '';
   let inQuotes = false;
   for (let i = 0; i < line.length; i++) {
@@ -93,6 +94,12 @@ function parseCSVLine(line) {
     } else {
       if (ch === '"') {
         inQuotes = true;
+      } else if (ch === '\n' || ch === '\r') {
+        if (ch === '\r' && line[i + 1] === '\n') i++;
+        result.push(current.trim());
+        records.push(result);
+        result = [];
+        current = '';
       } else if (ch === ',') {
         result.push(current.trim());
         current = '';
@@ -102,7 +109,8 @@ function parseCSVLine(line) {
     }
   }
   result.push(current.trim());
-  return result;
+  records.push(result);
+  return records;
 }
 
 function parseImportDate(dateStr) {
