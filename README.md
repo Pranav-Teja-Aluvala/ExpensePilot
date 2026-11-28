@@ -1,5 +1,40 @@
 # ExpensePilot
 
+A local browser ledger for reviewing bank statement activity. Import a CSV, check transactions and running balances, and explore monthly cash flow and categorized spending.
+
+## Run the statement ledger
+
+Use Node.js 22 or newer. From the repository root:
+
+```sh
+node scripts/serve-web.mjs
+```
+
+Open [127.0.0.1:4175/web/](http://127.0.0.1:4175/web/) and choose **Try a demo statement**. The synthetic demo has 24 transactions across two months. Use **CSV format** to download the same sample and try the file picker.
+
+### Supported CSV format
+
+| Column | Expected values |
+| :--- | :--- |
+| `Date` | `YYYY-MM-DD`, `DD/MM/YYYY`, or `DD-MM-YYYY` |
+| `Description` | Transaction narration |
+| `Debit`, `Credit` | A positive INR amount in one column, with the other blank or zero |
+| `Balance` | Optional running INR balance after the row |
+| `Reference` | Optional bank transaction reference |
+
+Use UTF-8 and oldest-first ordering. Quote amounts with thousands separators. Each file can contain up to 2 MiB and 2,000 records. This version supports the documented CSV schema. Bank-specific layouts, Excel, PDF, and scanned files are future work.
+
+### How it works
+
+- A browser worker parses the file, checks rows, and reconciles successive reported balances in integer paise. The preview shows rejected records, balance differences, and possible overlaps.
+- The app fingerprints the file per account nickname. Use the same nickname for statements from the same account. An exact repeat stays out of the ledger, while uncertain matches can be selected during review.
+- The dashboard separates cash inflow and outflow from debits classified as spending. The transaction table shows each classification reason and the source record. Corrections can become exact-description rules for future imports.
+- IndexedDB stores ledger rows, file fingerprints, and saved rules in the browser. Statement parsing and review make no outbound requests. The local server serves bundled assets. Backup and restore are available under **Local data and backups**. Backups contain transaction details, and clearing browser data can remove the ledger.
+
+Run all current tests with `node --test`.
+
+## Gmail extension prototype
+
 A Chrome extension prototype for organizing bank-transaction emails into a local expense dashboard. It includes a demo-data mode and a Gmail import workflow.
 
 ## Try it

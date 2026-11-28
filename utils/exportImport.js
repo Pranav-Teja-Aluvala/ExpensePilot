@@ -76,7 +76,7 @@ export function importFromCSV(csvString) {
   }
 }
 
-function parseCSVRecords(text) {
+export function parseCSVRecords(text) {
   const records = [];
   let row = [];
   let field = '';

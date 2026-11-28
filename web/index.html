@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; worker-src 'self'; connect-src 'none'; img-src 'self'; base-uri 'none'; form-action 'none'">
+  <title>ExpensePilot · Statement ledger</title>
+  <link rel="icon" href="../assets/icon.png">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./app.mjs"></script>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <a class="wordmark" href="./"><span class="mark" aria-hidden="true">↗</span>ExpensePilot</a>
+      <a href="#ledger-tools" class="local-indicator">Local ledger</a>
+    </header>
+    <main>
+      <section class="intro" aria-labelledby="overview-title">
+        <div><h1 id="overview-title" tabindex="-1">Statement ledger</h1><p>Review bank activity and understand where your money went.</p></div>
+        <div class="filters overview-filters">
+          <label>Account <select id="account-filter"><option value="">All accounts</option></select></label>
+          <label>Period <select id="month-filter"><option value="">All months</option></select></label>
+        </div>
+      </section>
+      <p id="message" role="status" class="notice" hidden></p>
+      <section class="card import-card" aria-labelledby="import-title">
+        <div><h2 id="import-title">Import a statement</h2><p>Choose a UTF-8 CSV. Review the rows before adding them to this browser.</p></div>
+        <form id="import-form" class="import-form">
+          <label>Account nickname <input id="account-name" required maxlength="60" placeholder="e.g. Everyday account" autocomplete="off"></label>
+          <label class="file-control">Statement file <input id="statement-file" type="file" accept=".csv,text/csv" required></label>
+          <button type="submit" class="primary" id="review-button">Review statement</button>
+        </form>
+        <div class="import-footer">
+          <button type="button" id="demo-button" class="text-button">Try a demo statement</button>
+          <details><summary>CSV format</summary><p>Use Date, Description, Debit and Credit columns. Balance and Reference are optional. Sort earliest first and use dates like 2026-11-01 or 01/11/2026. Up to 2 MiB and 2,000 records per file.</p><button type="button" id="template-button" class="text-button">Download sample CSV</button></details>
+        </div>
+      </section>
+      <section id="preview" class="card preview" aria-labelledby="preview-title" hidden>
+        <div class="section-head">
+          <div><h2 id="preview-title" tabindex="-1">Review statement</h2><p id="preview-period"></p></div>
+          <button id="cancel-preview" type="button" class="secondary">Discard preview</button>
+        </div>
+        <p id="preview-totals" class="preview-totals"></p>
+        <p id="selected-totals" class="selected-totals" hidden></p>
+        <p id="balance-summary" class="notice"></p>
+        <details id="import-issues" hidden><summary id="issue-summary"></summary><ul id="issue-list"></ul></details>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="Statement review rows">
+          <table><thead><tr><th scope="col">Date</th><th scope="col">Description</th><th scope="col" class="amount">Amount</th><th scope="col">Review status</th></tr></thead><tbody id="preview-rows"></tbody></table>
+        </div>
+        <div class="section-head preview-footer"><p>Possible duplicates start unchecked. Review them before saving.</p><button id="save-import" class="primary" type="button">Add transactions</button></div>
+      </section>
+      <section class="summary" id="summary" aria-label="Period totals">
+        <article class="card metric"><h2>Money in</h2><strong id="inflow">₹0.00</strong><p>All credits</p></article>
+        <article class="card metric"><h2>Money out</h2><strong id="outflow">₹0.00</strong><p>All debits</p></article>
+        <article class="card metric"><h2>Net movement</h2><strong id="net">₹0.00</strong><p>Credits minus debits</p></article>
+        <article class="card metric metric-spending"><h2>Spending</h2><strong id="spending">₹0.00</strong><p>Debits marked as spending</p></article>
+      </section>
+      <div class="charts">
+        <section class="card chart-card" aria-labelledby="category-title">
+          <div class="section-head"><div><h2 id="category-title">Spending by category</h2><p>Choose a category to see its transactions.</p></div></div>
+          <div class="bar-list" id="category-chart"></div>
+        </section>
+        <section class="card chart-card" aria-labelledby="trend-title">
+          <div class="section-head"><div><h2 id="trend-title">Monthly cash flow</h2><p>Compare the six months through the selected period.</p></div></div>
+          <div class="trend-legend" aria-hidden="true"><div class="legend-keys"><span class="legend-in">Money in</span><span>Money out</span></div><span class="trend-net">Net movement</span></div>
+          <div id="trend-chart" class="trend-chart"></div>
+        </section>
+      </div>
+      <section class="card transactions" id="transactions" aria-labelledby="transaction-title">
+        <div class="section-head">
+          <div><h2 id="transaction-title" tabindex="-1">Transactions</h2><p id="transaction-count"></p></div>
+          <div class="filters">
+            <label>Search <input type="search" id="search-filter" placeholder="Description or reference"></label>
+            <label>Category <select id="category-filter"><option value="">All transactions</option></select></label>
+          </div>
+        </div>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="Transactions table">
+          <table><thead><tr><th scope="col">Date</th><th scope="col">Description</th><th scope="col">Classification</th><th scope="col" class="amount">Amount</th></tr></thead><tbody id="ledger-rows"></tbody></table>
+        </div>
+        <div class="section-head pager" id="pager" hidden><button id="previous" type="button" class="secondary">Previous</button><p id="page-status"></p><button id="next" type="button" class="secondary">Next</button></div>
+      </section>
+      <details class="card ledger-tools" id="ledger-tools">
+        <summary>Local data and backups</summary>
+        <p>This ledger is stored in this browser profile. A downloaded backup contains your transaction details. Restore is available when the ledger is empty.</p>
+        <div class="tool-row">
+          <button id="download-backup" type="button" class="secondary">Download JSON backup</button>
+          <label class="file-control">Restore JSON backup <input id="restore-backup" type="file" accept=".json,application/json"></label>
+          <button id="clear-ledger" type="button" class="secondary danger">Clear local data</button>
+        </div>
+      </details>
+    </main>
+  </div>
+  <dialog id="edit-dialog" aria-labelledby="edit-title">
+    <form id="edit-form">
+      <div class="section-head"><h2 id="edit-title">Edit classification</h2><button class="text-button" id="close-editor" type="button">Close</button></div>
+      <p id="edit-description"></p>
+      <p id="edit-source" class="source"></p>
+      <label>Transaction type <select id="edit-kind"></select></label>
+      <label>Spending category <select id="edit-category"></select></label>
+      <label class="check"><input id="remember-rule" type="checkbox"> Use for future rows with this exact description and direction</label>
+      <button class="primary" type="submit">Save classification</button>
+    </form>
+  </dialog>
+</body>
+</html>
